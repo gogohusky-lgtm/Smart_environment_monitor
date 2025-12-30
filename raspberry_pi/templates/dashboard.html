@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>智慧環境監測站 Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-bottom: 6px; }
+    .meta { margin-bottom: 12px; color: #666; }
+    .chart-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .chart-box {
+      flex: 1;
+      min-width: 360px;
+    }
+    canvas {
+      width: 100%;
+      height: 300px;
+    }
+    .last-time { margin-top: 8px; font-size: 0.9em; color: #333; }
+  </style>
+</head>
+<body>
+  <h2>智慧環境監測站 Dashboard</h2>
+  <div class="meta">資料來源：Arduino → RPi5 (MQTT)。Grafana/InfluxDB 已啟用（若已設定）。</div>
+  <div class="chart-row">
+    <div class="chart-box">
+      <h3>溫濕度綜合圖</h3>
+      <canvas id="tempHumChart"></canvas>
+      <div class="last-time" id="lastTime">最近接收：--</div>
+    </div>
+    <div class="chart-box">
+      <h3>光照強度圖</h3>
+      <canvas id="lightChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const maxPoints = 200;
+
+    function safeNum(v) {
+      if (v === null || v === undefined || v === "") return null;
+      const n = Number(v);
+      return isNaN(n) ? null : n;
+    }
+
+    const tempHumChart = new Chart(document.getElementById("tempHumChart").getContext("2d"), {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: "DHT11 Temp (°C)", data: [], borderColor: "blue", fill: false, yAxisID: 'y-left' },
+          { label: "LM35 Temp (°C)", data: [], borderColor: "red", fill: false, borderDash: [5,5], yAxisID: 'y-left' },
+          { label: "DHT11 Humidity (%)", data: [], borderColor: "green", fill: false, yAxisID: 'y-right' }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: {
+          x: { display: true },
+          'y-left': { type: 'linear', position: 'left', min: 0, max: 50, title: { display: true, text: 'Temperature (°C)' } },
+          'y-right': { type: 'linear', position: 'right', min: 0, max: 100, title: { display: true, text: 'Humidity (%)' }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+
+    const lightChart = new Chart(document.getElementById("lightChart").getContext("2d"), {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: "Light Level", data: [], borderColor: "orange", fill: false }] },
+      options: { animation: false, scales: { x: { display: true }, y: { min: 0, max: 600, title: { display: true, text: 'Light (raw ADC)' } } } }
+    });
+
+    // Append single data point to charts
+    function appendDataPoint(point) {
+      const ts = new Date().toLocaleTimeString();
+
+      tempHumChart.data.labels.push(ts);
+      tempHumChart.data.datasets[0].data.push(safeNum(point.DHT_Temp));
+      tempHumChart.data.datasets[1].data.push(safeNum(point.LM35_Temp));
+      tempHumChart.data.datasets[2].data.push(safeNum(point.DHT_Humd));
+      if (tempHumChart.data.labels.length > maxPoints) {
+        tempHumChart.data.labels.shift();
+        tempHumChart.data.datasets.forEach(ds => ds.data.shift());
+      }
+      tempHumChart.update();
+
+      lightChart.data.labels.push(ts);
+      lightChart.data.datasets[0].data.push(safeNum(point.CDS_Light));
+      if (lightChart.data.labels.length > maxPoints) {
+        lightChart.data.labels.shift();
+        lightChart.data.datasets[0].data.shift();
+      }
+      lightChart.update();
+
+      document.getElementById("lastTime").innerText = "最近接收：" + ts;
+    }
+
+    // Fetch history and use to initialize charts
+    async function loadHistory(n=200) {
+      try {
+        const res = await fetch(`/history?n=${n}`);
+        const arr = await res.json();
+        if (!Array.isArray(arr)) return;
+        // clear existing
+        tempHumChart.data.labels = [];
+        tempHumChart.data.datasets.forEach(ds => ds.data = []);
+        lightChart.data.labels = [];
+        lightChart.data.datasets[0].data = [];
+
+        for (const p of arr) {
+          // normalize keys maybe strings
+          appendDataPoint(p);
+        }
+      } catch (e) {
+        console.error("Load history error:", e);
+      }
+    }
+
+    // Poll latest data
+    async function pollLatest() {
+      try {
+        const res = await fetch("/data");
+        const p = await res.json();
+        if (p && Object.keys(p).length > 0) {
+          appendDataPoint(p);
+        }
+      } catch (e) {
+        console.error("Fetch latest error:", e);
+      }
+    }
+
+    // initial load
+    loadHistory(120).then(() => {
+      // after history loaded, continue polling
+      setInterval(pollLatest, 2000);
+    });
+  </script>
+</body>
+</html>

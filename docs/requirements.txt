@@ -1,0 +1,6 @@
+paho-mqtt
+influxdb-client (v2)
+InfluxDB2==2.7.12
+Grafana
+Telegraf
+Mosquitto MQTT Broker
