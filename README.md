@@ -1,153 +1,140 @@
-# **RFID door security system**
+# **Smart environment monitoring system**
 ## Executive Summary
 
-This project implements a secure RFID-based door access control system using a
-Raspberry Pi 5 and an ESP32-CAM. The system integrates RFID authentication,
-relay-based door control, distributed image capture, and secure data transmission
-via TLS-enabled MQTT.
+This project demonstrates an end-to-end IoT environment monitoring system integrating
+microcontroller-based sensor acquisition, edge computing, real-time visualization,
+and time-series data storage.
 
-The Raspberry Pi 5 acts as the central controller, responsible for RFID UID
-verification (HMAC-SHA256), access decision logic, relay control, and event logging.
-The ESP32-CAM is dedicated to image capture and transmits photos back to the
-Raspberry Pi in fragmented Base64 format over MQTT.
+An Arduino Uno is used for multi-sensor sampling and analog-to-digital conversion,
+while a Raspberry Pi 5 acts as an edge node responsible for data validation,
+MQTT-based messaging, and system-level integration.
+Sensor data is visualized in real time through a Flask-based dashboard
+and stored in InfluxDB for historical analysis using Grafana.
 
-The system is designed with security and hardware constraints in mind, including
-the RP1 I/O architecture of Raspberry Pi 5 and the current limitations of RC522
-Python libraries. This project demonstrates practical embedded system integration,
-secure communication, and architectural trade-off handling in a real-world IoT
-scenario.
+The project emphasizes a clear separation of responsibilities between hardware-level
+data acquisition and Linux-based edge processing, making it suitable as a practical
+showcase for embedded and IoT engineering roles.
 
-------
+---
 
-## RFID 門禁系統 (Raspberry Pi 5 + ESP32-CAM)
 
-本專案實作一套基於 RFID 的照相門禁系統，整合 RFID 驗證、繼電器控制、ESP32-CAM 拍照、TLS MQTT 傳輸，以及事件紀錄與查詢。
+## 智慧環境監測站（Arduino + Raspberry Pi + MQTT + InfluxDB + Grafana）
+
+本專案是一個完整的 IoT 入門到中階整合範例，展示多感測器資料蒐集、跨裝置通訊、即時視覺化與時間序列資料儲存。
 
 ## 系統架構
-！[系統架構圖](docs/system_architecture.png)
+本系統採用「感測 / 邊緣處理 / 資料管線 / 視覺化」的分層架構設計：
+
+![系統架構圖](docs/system_architecture.png)
 
 ## Demo video
-https://youtu.be/tfpOGa3I91k
+https://youtu.be/Ifh9Rky5IHM
 
-**資料流程概覽：**
+## 使用的感測器
 
-RFID Tag  
-→ Raspberry Pi 5 (`RFID.py`)  
-→ ESP32-CAM (`ESP32.ino`)  
-→ Raspberry Pi 5 (`TakePicture.py`)
+- DHT11：溫度 / 濕度（Digital）
+- LM35：類比溫度感測器（Analog）
+- CDS（光敏電阻）：光照強度（Analog，需上拉電阻）
 
-## 硬體配置
+## 硬體配置與職責劃分
 
-### Raspberry Pi 5
+Arduino Uno 負責：
+- 感測器讀取
+- 類比訊號 ADC 轉換（LM35 / CDS）
+- 感測資料封裝為 JSON
+- 每 2 秒經由 UART 傳送
 
-負責以下功能：
-
-- RC522 RFID 讀取
-- UID 的 HMAC-SHA256 驗證
-- Relay（門鎖）控制
-- 發送拍照命令至 ESP32-CAM
-- 接收並儲存照片
-- SQLite 事件紀錄
-- 產生 CSV 檔案供快速查詢
-
-### ESP32-CAM
-
-- 執行拍照
-- 將影像轉為 Base64
-- 以分片方式透過 MQTT 傳送影像資料
+Raspberry Pi 5 負責：
+- UART 資料接收與解析
+- 感測資料基本驗證與門檻判斷
+- MQTT Publisher / Subscriber
+- Flask 即時監控 Dashboard
+- InfluxDB 時間序列資料寫入
+- Grafana 歷史資料視覺化
 
 ## 軟體元件
 
 - Python 3
+- Flask
 - paho-mqtt
+- influxdb-client (v2)
+- InfluxDB 2.x
+- Grafana
 - Mosquitto MQTT Broker
-- SQLite
 
 ## 啟動順序
 
-1. 啟動 Mosquitto MQTT Broker
-2. ESP32-CAM 上電
-3. Raspberry Pi 執行主程式：
+1. 啟動 MQTT Broker
+2. 啟動 InfluxDB
+3. 啟動 Grafana
+4. Arduino 上電
+5. Raspberry Pi：
    ```bash
-   python RFID.py
+   python publisher.py
+   python main.py
+6. 開啟瀏覽器：
+
+    Flask Dashboard：http://localhost:5000
+
+    influxdb: http://localhost:8086
+
+    Grafana：http://localhost:3000
+
 ## 設計決策 & 已知限制
 
 ### 設計決策
 
-- Raspberry Pi 5 負責系統控制與資料整合（RFID、Relay、拍照流程、資料庫）
-- ESP32-CAM 專職於影像擷取，避免在 Raspberry Pi 上直接處理攝影模組
-- 採用 MQTT 作為裝置間通訊協定，並使用 雙向 TLS 確保傳輸安全
-- RFID UID 不以明文儲存或比對：
-    - UID 先以 HMAC-SHA256 雜湊
-    - 授權清單僅儲存雜湊值 (authorized_uids.json)
+- 使用 Arduino Uno 處理感測與 ADC，避免 Raspberry Pi 在 Linux 環境下直接處理即時硬體 I/O 與類比訊號。
+- 感測資料於 Edge（Raspberry Pi）端進行基本驗證後再寫入資料庫，降低資料污染風險。
+- 採用 MQTT 作為裝置間通訊協定，利於未來擴充多節點感測架構。
+- Flask Dashboard 僅用於即時監看與除錯，歷史趨勢分析交由 Grafana 處理。
 
-### GPIO 架構說明（重要）
-此專案運行於 Raspberry Pi 5 (使用**RP1 I/O 架構**).
+### 已知問題及限制
 
-- **Relay 控制** 使用 `lgpio` (RP1-native GPIO).
-- **RC522 RFID** 使用現有 Python 函式庫 (`mfrc522`, `pi-rc522`)。
-    - 目前 RC522 的 Python 生態仍依賴 **legacy RPi.GPIO backend**，尚未支援純 **RP1-native GPIO stack**。
-
-因此本專案採用 混合 GPIO backend 設計：
-- RP1-native (lgpio) → Relay
-- Legacy (RPi.GPIO) → RC522 RFID
-- 此為目前 RP1 + RC522 生態系的已知限制，而非設計缺陷。
-- 若未來 RC522 函式庫支援 RP1-native GPIO，可無痛替換。
------
-
-## Security Note
-
-- authorized_uids.json 僅包含 HMAC 雜湊值
-
-- TLS 私鑰與 SECRET 不會提交至 GitHub
-
-- `Encoding.py` 說明，其有兩個功能:
-
-    1. **離線工具**  
-    由明碼 RFID UID **離線一次性**產生 `authorized_uids.json`。該步驟僅用於初始化授權清單，產生後明碼 UID 會被移除，不參與任何 runtime 驗證流程。
+- DHT11 感測精度有限，僅適合示範用途，未適用於高精度環境監控。
+- UART 傳輸目前未加入 CRC 或重送機制，假設傳輸環境穩定。
+- InfluxDB Token 目前以設定檔方式載入，未實作進階金鑰管理或權限分級。
+- 系統尚未加入 systemd service 或 container-based deployment，重啟需人工介入。
 
 
-    2. **提供程式執行之輔助功能模組**  
-    提供 `hmac_uid()` 函式以加密讀入之 UID，供 `RFID.py` 使用以比對 json 檔資料。
+## 備註
 
-    明碼 UID 不會被儲存、傳輸或上傳至此 repo。
+- InfluxDB Token 請自行建立並填入 config.py
+- 本專案設計目標為學習與展示用途
 
-## 檔案目錄結構
 
+## 專案目錄結構
 ```text
-RFID_door_security/
+smart_environment_monitor/
+├── arduino/
+│   └── DHT11-LM35-CDS.ino
+│
 ├── docs/
-│   ├── wiring.md
-|   ├── requirements.txt
+│   └── wiring.md
+│   ├── requirements.txt
 │   └── system_architecture.png
 │
-├── ESP32/
-|   ├── ESP32.ino            # 拍照 + MQTT 傳輸
-|   └── Burn.ino             # TLS 憑證寫入 SPIFFS
-|
-├── Log/
-│   └── rfid_log_daily.csv.png          # 每日自動匯出 CSV 之截圖
+├── raspberry_pi/
+│   ├── main.py
+│   ├── publisher.py
+│   ├── config.py
+│   └── templates/
+│       └── dashboard.html
 │
-├── photos/
-|   ├── photo_20251230_081852.jpg  # 拍攝的照片＃１
-|   ├── photo_20251230_081908.jpg  # 拍攝的照片＃２
-|   └── photo_20251230_081922.jpg  # 拍攝的照片＃３
+├── screenshots_demo
+│   ├── flask_dashboard.png
+│   └── grafana_dashboard.png
+│   └── influxdb_dashboard.png
 |
-├── Raspberry_pi/
-│   ├── RFID.py                     # 讀卡 → 比對 → 開門 → 呼叫拍照
-│   ├── TakePicture.py              # MQTT TLS 收圖 + 儲存 + SQLite + CSV
-│   ├── Encoding.py                 # HMAC-SHA256 UID → 建立授權檔
-│   └── authorized_uids.json        # 已授權的 UID (HMAC)
-│
 └── README.md
 ```
+
 ## License Notice
 
 The source code in this repository is released under the MIT License.
 
 Demo materials, including videos, photos, logs, and generated data under the following directories are provided for demonstration purposes only and are NOT covered by the MIT License:
 
-- photos/
-- Log/
+- screenshots_demo/
 
 These materials may not be redistributed or reused without explicit permission.
