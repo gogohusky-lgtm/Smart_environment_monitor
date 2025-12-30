@@ -1,19 +1,11 @@
 # **Smart environment monitoring system**
 ## Executive Summary
 
-This project demonstrates an end-to-end IoT environment monitoring system integrating
-microcontroller-based sensor acquisition, edge computing, real-time visualization,
-and time-series data storage.
+This project demonstrates an end-to-end IoT environment monitoring system integrating microcontroller-based sensor acquisition, edge computing, real-time visualization, and time-series data storage.
 
-An Arduino Uno is used for multi-sensor sampling and analog-to-digital conversion,
-while a Raspberry Pi 5 acts as an edge node responsible for data validation,
-MQTT-based messaging, and system-level integration.
-Sensor data is visualized in real time through a Flask-based dashboard
-and stored in InfluxDB for historical analysis using Grafana.
+An Arduino Uno is used for multi-sensor sampling and analog-to-digital conversion, while a Raspberry Pi 5 acts as an edge node responsible for data validation, MQTT-based messaging, and system-level integration. Sensor data is visualized in real time through a Flask-based dashboard and stored in InfluxDB for historical analysis using Grafana.
 
-The project emphasizes a clear separation of responsibilities between hardware-level
-data acquisition and Linux-based edge processing, making it suitable as a practical
-showcase for embedded and IoT engineering roles.
+The project emphasizes a clear separation of responsibilities between hardware-level data acquisition and Linux-based edge processing. Although all services run on Raspberry Pi 5 in this demo, the data pipeline is designed to be deployable across multiple nodes, making it suitable as a practical showcase for embedded and IoT engineering roles.
 
 ---
 
@@ -28,6 +20,8 @@ showcase for embedded and IoT engineering roles.
 ![系統架構圖](docs/system_architecture.png)
 
 ## Demo video
+本影片展示由 Arduino 收集後，藉由 MQTT 傳輸至 Raspberry Pi 之即時感應器數據，並儲存於 influxDB，且藉由 Grafana 與 Flask 面板視覺化。
+
 https://youtu.be/Ifh9Rky5IHM
 
 ## 使用的感測器
