@@ -74,6 +74,11 @@ Raspberry Pi 5 負責：
 
     Grafana：http://localhost:3000
 
+預期之結果：
+- Raspberry Pi 5 接收 Arduino 收集之感測器讀值
+- Flask 面板更新溫溼度及光照讀值
+- InfluxDB 及 Grafana 紀錄及顯示溫溼度及光照讀值
+
 ## 設計決策 & 已知限制
 
 ### 設計決策
