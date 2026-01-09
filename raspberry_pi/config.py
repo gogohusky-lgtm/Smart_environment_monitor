@@ -26,7 +26,7 @@ INFLUX_USE_V2 = True
 INFLUX_V2_URL = "http://localhost:8086"
 INFLUX_V2_ORG = "home-lab"
 INFLUX_V2_BUCKET = "sensor_bucket"
-INFLUX_V2_TOKEN = "ThRYHt9IdQK6jogjWf2eaXxN1dTAO8udCTMi85QJl1bLeH3EwFSbPipDtxQ6TipXlDXuBFNtgAUGBshltUiXuQ=="
+INFLUX_V2_TOKEN = "xxxxxxxxxx"
 INFLUX_USE_V2 = True
 
 # InfluxDB v1 settings (only used if INFLUX_USE_V2=False)
