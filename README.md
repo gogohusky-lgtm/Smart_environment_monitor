@@ -65,7 +65,7 @@ https://youtu.be/Ifh9Rky5IHM
 
 系統架構：
 
-![系統架構圖](docs/system_architecture.png)
+![系統架構圖](docs/system_arch.png)
 
 ---
 
