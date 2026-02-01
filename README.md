@@ -1,108 +1,145 @@
-# **Smart environment monitoring system**
-## Executive Summary
+# 智慧環境監測系統
+### （Arduino + Raspberry Pi 5，分散式 IoT 資料管線）
 
-This project demonstrates an end-to-end IoT environment monitoring system integrating microcontroller-based sensor acquisition, edge computing, real-time visualization, and time-series data storage.
-
-An Arduino Uno is used for multi-sensor sampling and analog-to-digital conversion, while a Raspberry Pi 5 acts as an edge node responsible for data validation, MQTT-based messaging, and system-level integration. Sensor data is visualized in real time through a Flask-based dashboard and stored in InfluxDB for historical analysis using Grafana.
-
-The project emphasizes a clear separation of responsibilities between hardware-level data acquisition and Linux-based edge processing. Although all services run on Raspberry Pi 5 in this demo, the data pipeline is designed to be deployable across multiple nodes, making it suitable as a practical showcase for embedded and IoT engineering roles.
+**核心重點：** 感測器–邊緣分工、資料管線、硬體感知系統設計
 
 ---
 
+## 專案概述
 
-## 智慧環境監測站（Arduino + Raspberry Pi + MQTT + InfluxDB + Grafana）
+此專案展示了一個 **完整的 IoT 環境監測管線**：
 
-本專案是一個完整的 IoT 入門到中階整合範例，展示多感測器資料蒐集、跨裝置通訊、即時視覺化與時間序列資料儲存。
+- Arduino Uno 用於 **即時感測器數據擷取與 ADC 處理**
+- Raspberry Pi 5 作為 **基於 Linux 的邊緣節點**，負責驗證、訊息傳遞與視覺化
+- **MQTT** 用於裝置間通訊
+- **InfluxDB + Grafana** 用於時間序列資料儲存與歷史分析
+- **Flask 儀表板** 用於即時監測與除錯
 
-## 系統架構
-本系統採用「感測 / 邊緣處理 / 資料管線 / 視覺化」的分層架構設計：
+> 此專案強調 **明確的職責分工**，將微控制器層級 I/O 與 Linux 邊緣處理分離，反映真實世界 IoT 部署模式。
+
+---
+
+## 此專案解決了什麼問題？
+
+此專案明確解決：
+- 邊緣裝置的適性應用，**微控制器適合即時感測與 ADC**，而 **Linux 邊緣節點專注於驗證、訊息傳遞與儲存**
+- **MQTT 如何支援可擴展的多節點感測架構**
+- 將原始感測數據，經由 Edge 驗證、時間序列化與視覺化，轉化為可用於監控、趨勢分析與後續自動化決策的系統輸出
+
+---
+
+## 主要工程決策與發現
+
+### 感測器–邊緣職責分工
+- Arduino Uno 處理：
+  - 感測器取樣
+  - ADC 轉換（LM35、CDS）
+  - JSON 封包生成
+- Raspberry Pi 5 處理：
+  - 資料驗證與閾值檢查
+  - MQTT 發佈 / 訂閱
+  - 視覺化與持久化
+
+### 分層式資料管線設計
+- 即時檢視：Flask 儀表板
+- 長期分析：InfluxDB + Grafana
+- 避免儀表板因歷史邏輯而過載
+
+### 實務取捨與限制
+- DHT11 僅用於示範，非精密監測
+- UART 通訊假設環境穩定（尚無 CRC）
+- 手動啟動服務反映原型階段
+
+**結論：**
+> 可擴展的 IoT 系統更依賴 **架構清晰度**，  
+> 而非增加更多感測器或 UI 功能。
+
+---
+
+## Demo
+
+**感測器擷取 → MQTT → 邊緣處理 → 視覺化**
+
+示範影片：  
+https://youtu.be/Ifh9Rky5IHM
+
+系統架構：
 
 ![系統架構圖](docs/system_architecture.png)
 
-## Demo video
-本影片展示由 Arduino 收集後，藉由 MQTT 傳輸至 Raspberry Pi 之即時感應器數據，並儲存於 influxDB，且藉由 Grafana 與 Flask 面板視覺化。
+---
 
-https://youtu.be/Ifh9Rky5IHM
+**詳細實作與設計理由如下**
 
-## 使用的感測器
+---
+---
 
-- DHT11：溫度 / 濕度（Digital）
-- LM35：類比溫度感測器（Analog）
-- CDS（光敏電阻）：光照強度（Analog，需上拉電阻）
+## 1. 系統架構
 
-## 硬體配置與職責劃分
+系統遵循 **分層式 IoT 架構**：
 
-Arduino Uno 負責：
-- 感測器讀取
-- 類比訊號 ADC 轉換（LM35 / CDS）
-- 感測資料封裝為 JSON
-- 每 2 秒經由 UART 傳送
+1. **感測層** – Arduino Uno  
+2. **邊緣處理層** – Raspberry Pi 5  
+3. **訊息層** – MQTT  
+4. **儲存與視覺化層** – InfluxDB / Grafana / Flask  
 
-Raspberry Pi 5 負責：
+此結構刻意設計為可擴展至多個感測節點。
+
+---
+
+## 2. 使用的感測器
+
+- DHT11 – 溫度 / 濕度（數位）  
+- LM35 – 類比溫度感測器  
+- CDS（光敏電阻）– 環境光照強度  
+
+類比感測器在 Arduino 上處理，以避免 Linux 的時間與 ADC 限制。
+
+---
+
+## 3. 硬體職責
+
+### Arduino Uno
+- 感測器輪詢
+- ADC 轉換
+- JSON 負載格式化
+- UART 傳輸（每 2 秒）
+
+### Raspberry Pi 5
 - UART 資料接收與解析
-- 感測資料基本驗證與門檻判斷
-- MQTT Publisher / Subscriber
-- Flask 即時監控 Dashboard
-- InfluxDB 時間序列資料寫入
-- Grafana 歷史資料視覺化
+- 資料驗證與合理性檢查
+- MQTT 發佈 / 訂閱
+- Flask 即時儀表板
+- InfluxDB 時間序列寫入
+- Grafana 歷史視覺化
 
-## 軟體元件
+---
 
-- Python 3
-- Flask
-- paho-mqtt
-- influxdb-client (v2)
-- InfluxDB 2.x
-- Grafana
-- Mosquitto MQTT Broker
+## 4. 軟體堆疊
 
-## 啟動順序
+- Python 3  
+- Flask  
+- Mosquitto MQTT Broker  
+- paho-mqtt  
+- InfluxDB 2.x  
+- Grafana  
 
-1. 啟動 MQTT Broker
-2. 啟動 InfluxDB
-3. 啟動 Grafana
-4. Arduino 上電
-5. Raspberry Pi：
-   ```bash
-   python publisher.py
-   python main.py
-6. 開啟瀏覽器：
+---
 
-    Flask Dashboard：http://localhost:5000
+## 5. 啟動流程
 
-    influxdb: http://localhost:8086
+1. 啟動 Mosquitto MQTT broker  
+2. 啟動 InfluxDB  
+3. 啟動 Grafana  
+4. 啟動 Arduino Uno  
+5. 在 Raspberry Pi 5 上執行：
 
-    Grafana：http://localhost:3000
+```bash
+python publisher.py
+python main.py
+```
 
-預期之結果：
-- Raspberry Pi 5 接收 Arduino 收集之感測器讀值
-- Flask 面板更新溫溼度及光照讀值
-- InfluxDB 及 Grafana 紀錄及顯示溫溼度及光照讀值
-
-## 設計決策 & 已知限制
-
-### 設計決策
-
-- 使用 Arduino Uno 處理感測與 ADC，避免 Raspberry Pi 在 Linux 環境下直接處理即時硬體 I/O 與類比訊號。
-- 感測資料於 Edge（Raspberry Pi）端進行基本驗證後再寫入資料庫，降低資料污染風險。
-- 採用 MQTT 作為裝置間通訊協定，利於未來擴充多節點感測架構。
-- Flask Dashboard 僅用於即時監看與除錯，歷史趨勢分析交由 Grafana 處理。
-
-### 已知問題及限制
-
-- DHT11 感測精度有限，僅適合示範用途，未適用於高精度環境監控。
-- UART 傳輸目前未加入 CRC 或重送機制，假設傳輸環境穩定。
-- InfluxDB Token 目前以設定檔方式載入，未實作進階金鑰管理或權限分級。
-- 系統尚未加入 systemd service 或 container-based deployment，重啟需人工介入。
-
-
-## 備註
-
-- InfluxDB Token 請自行建立並填入 config.py
-- 本專案設計目標為學習與展示用途
-
-
-## 專案目錄結構
+## 6. 專案目錄結構
 ```text
 smart_environment_monitor/
 ├── arduino/
@@ -111,6 +148,7 @@ smart_environment_monitor/
 ├── docs/
 │   └── wiring.md
 │   ├── requirements.txt
+│   ├── system_arch.png
 │   └── system_architecture.png
 │
 ├── raspberry_pi/
